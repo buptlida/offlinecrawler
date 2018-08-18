@@ -20,7 +20,7 @@ groupinfo = []
 
 def getcity():
   cities = []
-  with open("./data/PLACE.txt") as file:
+  with open("../data/PLACE.txt") as file:
     for line in file:
       info =  line.strip()
       cities.append(info)
@@ -35,7 +35,7 @@ def geturl(query):
   request.add_header("User-Agent", "Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)")
   response = urllib.request.urlopen(request)
   html = response.read().decode("UTF-8")
-  soup = BeautifulSoup(html, "lxml")
+  soup = BeautifulSoup(html, "html.parser")
   addresses = soup.select('.paginator a')
   suburl = addresses[0].get("href").split("&")
   gapnum = int(suburl[0][42:]) 
@@ -75,7 +75,7 @@ def getgroup(url, query):
   request.add_header("User-Agent", "Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)")
   response = urllib.request.urlopen(request)
   html = response.read().decode("UTF-8")
-  soup = BeautifulSoup(html, "lxml")
+  soup = BeautifulSoup(html, "html.parser")
   result = soup.select(".result .content")
   for r in result:
     humanterms = ",".join(jieba.cut(r.select("a")[0].string))
@@ -86,15 +86,15 @@ def getgroup(url, query):
   print("getgroup over")
   
 def WriteToFile():
-  output = open("./data/groupinfo.txt.tmp", "w")
+  output = open("../data/groupinfo.txt.tmp", "w")
   for group in groupinfo:
     output.write(group[0] + "\t" + str(group[1]) + "\n")
   output.close()
 
 def Write():
   mininum = 500
-  output = open("./data/groupinfo.txt", "w")
-  with open("./data/groupinfo.txt.tmp") as file:
+  output = open("../data/groupinfo.txt", "w")
+  with open("../data/groupinfo.txt.tmp") as file:
     for line in file:
       info = line.strip().split("\t")
       if len(info)!=2:
@@ -102,7 +102,7 @@ def Write():
       if int(info[1]) > mininum:
         output.write(info[0] + "\t" + info[1] + "\n")
   output.close()
-  os.remove("./data/groupinfo.txt.tmp")
+  os.remove("../data/groupinfo.txt.tmp")
 
 
 if __name__=="__main__":

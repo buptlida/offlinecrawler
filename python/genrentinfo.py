@@ -53,7 +53,7 @@ def getrentinfo(url):
     request = urllib.request.Request(url = url, headers=headers)
     response = urllib.request.urlopen(request)
     html = response.read().decode("UTF-8")
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, "html.parser")
     result = soup.select(".olt .title")
     for r in result:
       print(r)
@@ -62,14 +62,14 @@ def getrentinfo(url):
     break
   
 def SortAndWriteToFile():
-  output = open("./data/groupinfo.txt", "w")
+  output = open("../data/groupinfo.txt", "w")
   for group in groupinfo:
     output.write(group[0] + "\t" + str(group[1]) + "\n")
   output.close()
 
 def putGroupUrlToQueue():
   que = queue.Queue()
-  with open("./data/groupinfo.txt") as file:
+  with open("../data/groupinfo.txt") as file:
     for line in file:
       info = line.strip().split("\t")
       que.put(info[0] + "/discussion?start=")
