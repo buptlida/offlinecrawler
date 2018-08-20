@@ -11,8 +11,8 @@ import time
 import datetime
 import re
 
-httpHandler = urllib.request.HTTPHandler(debuglevel=1)
-httpsHandler = urllib.request.HTTPSHandler(debuglevel=1)
+httpHandler = urllib.request.HTTPHandler(debuglevel=0)
+httpsHandler = urllib.request.HTTPSHandler(debuglevel=0)
 cookiejar = http.cookiejar.CookieJar()
 cookie_support= urllib.request.HTTPCookieProcessor(cookiejar = cookiejar)
 opener = urllib.request.build_opener(httpHandler, httpsHandler, cookie_support)
@@ -73,12 +73,13 @@ def genareainfo():
 
 def scrawler(queue):
   time.sleep(1)
+  threedaysago = int(time.time()) - 360
   while not queue.empty():
     try:
       print('thread %s is running...' % threading.currentThread().name)
       # 不阻塞的读取队列数据
       url = queue.get_nowait()
-      getrentinfo(url)
+      getrentinfo(url, threedaysago)
     except Exception as e:
       print(e)
       continue
@@ -86,18 +87,15 @@ def scrawler(queue):
 def multithread(func, q, number):
     thread_list = []
     for i in range(number):
-        t = threading.Thread(target=func, args=(q), name="child_thread_%d" % i)
+        t = threading.Thread(target=func, args=(q,), name="child_thread_%d" % i)
         thread_list.append(t)
     for t in thread_list:
         t.start()
     for t in thread_list:
         t.join()
 
-def getrentinfo(baseurl):
+def getrentinfo(baseurl, threedaysago):
   global rentinfo
-  genareainfo()
-  print("getrent start")
-  baseurl = "https://www.douban.com/group/beijingzufang/discussion?start="
   count = -1
   while True:
     count += 1
@@ -108,6 +106,8 @@ def getrentinfo(baseurl):
     html = response.read().decode("UTF-8")
     soup = BeautifulSoup(html, "html.parser")
     result = soup.select(".olt .title")
+    ##线程退出标识
+    tag = 0
     for r in result:
       data = []
       data.append(r.a["href"])
@@ -119,7 +119,10 @@ def getrentinfo(baseurl):
           data.append(-1)
       else:
           data.append(int(num))
-      lastreply = str(datetime.datetime.now().year) + "-" + r.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.string
+      if len(r.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.string)==10:
+          lastreply = r.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.string + " 00:00"
+      else:
+          lastreply = str(datetime.datetime.now().year) + "-" + r.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.string
       timeArray = time.strptime(lastreply, "%Y-%m-%d %H:%M")
       data.append(int(time.mktime(timeArray)))
       request = urllib.request.Request(url = r.a["href"], headers=headers)
@@ -133,15 +136,19 @@ def getrentinfo(baseurl):
               continue
           content = content +  r.string.strip() + " " 
       data.append(content)
-      info = []
-      GetInfo(title, content, info)
       firstedit = soup.select(".color-green")[0].string
       timeArray = time.strptime(firstedit, "%Y-%m-%d %H:%M:%S")
       data.append(int(time.mktime(timeArray)))
-      print(data + info)
+      data = GetInfo(title, content, data)
+      if data[4] < threedaysago:
+        tag += 1
+      print(data[5])
       time.sleep(4)
+    ##该线程释放
+    if tag==len(result):
+      return 
 
-def GetInfo(title, content, info):
+def GetInfo(title, content, data):
   ##判断主次卧
   tag = -1
   pat1 = re.compile('次卧')
@@ -152,7 +159,7 @@ def GetInfo(title, content, info):
     tag = 2
   elif bool(pat1.search(content)) and bool(pat2.search(content)):
     tag = 3 
-  info.append(tag)
+  data.append(tag)
   ##判断限男女
   tag = -1
   pat3 = re.compile('男')
@@ -162,13 +169,13 @@ def GetInfo(title, content, info):
     tag = 1 
   if bool(pat4.search(title)) and  (not bool(pat5.search(title))):
     tag = 2
-  info.append(tag)
+  data.append(tag)
   ##判断整合组
   tag = -1
   pat6 = re.compile('整租|整套直租|整套出租|整套')
   if bool(pat6.search(title)):
     tag = 1
-  info.append(tag)
+  data.append(tag)
   ##判断房型
   tag = -1
   pat7 = re.compile('1居|一居|1室|一室')
@@ -181,7 +188,7 @@ def GetInfo(title, content, info):
   tag = 4 if bool(pat10.search(title)) else tag
   pat11 = re.compile('单间')
   tag = 5 if bool(pat11.search(title)) else tag
-  info.append(tag)
+  data.append(tag)
   ##押金类别
   tag = -1
   pat12 = re.compile('押一付一|押1付1')
@@ -190,15 +197,13 @@ def GetInfo(title, content, info):
   tag = 2 if bool(pat13.search(content)) else tag
   pat14 = re.compile('押一付三|押1付3')
   tag = 3 if bool(pat14.search(content)) else tag
-  info.append(tag)
+  data.append(tag)
   ##判断价格
   pat15 = re.compile(' \d{4} |\d{3,4}/月|主卧:\d{3,4}|主卧\d{3,4}|次卧:\d{3,4}|次卧\d{3,4}|\d{3,4}元|\d{3,4}-\d{3,4}|\d{3,4}到\d{3,4}|隔断\d{3,4}|价格\d{3,4}|每月\d{3,4}|\d{3,4}每月|一个月\d{3,4}|\d{3,4}一个月|整租:\d{3,4}|整租\d{3,4}|为\d{3,4}|小卧室\d{3,4}|大卧室\d{3,4}|月付\d{3,4}|\d{3,4}~\d{3,4}|\d{3,4}～\d{3,4}|房租:\d{3,4}|房租\d{3,4}|\d{3,4}--\d{3,4}|起\d{3,4}|租金\d{3,4}|合租\d{3,4}')
   #pat15 = re.compile(' \d{4} |\d{4}/月|主卧\d{4}|主卧:\d{4}|次卧\d{4}|次卧:\d{4}|\d{4}元|\d{4}-\d{4}|\d{4}到\d{4}|隔断\d{4}|价格\d{4}|每月\d{4}|\d{4}每月|一个月\d{4}|\d{4}一个月|整租\d{4}|整租：\d{4}|为\d{4}')
   price = pat15.findall(title + content)
   rental = set()
   for p in price:
-      #rental.add(p.replace("主卧|次卧|元|/月","").strip()) 
-      #info.append(price[0].replace("主卧","").replace("次卧","").replace("元","").replace("/月","").strip())
       if "-" in p:
           ptwo = p.split("-")
           try:
@@ -245,6 +250,7 @@ def GetInfo(title, content, info):
   p = pat16.findall("\d{4}")
   if len(p)==1:
       rental.add(int(p[0]))
+  print(rental)
   tag = -1 
   for r in rental:
     if r < 1500:
@@ -252,7 +258,7 @@ def GetInfo(title, content, info):
     else:
       num = int(r/500 -3) 
       tag = (tag | num)
-  info.append(tag)  
+  data.append(tag)  
   ##获取区域信息
   belong = [-1,-1,-1,-1]
   for a in subarea:
@@ -265,8 +271,8 @@ def GetInfo(title, content, info):
       belong[2] = int(subwaynum[a])
       belong[3] = int(subwaysnum[subinfo[a]])
       break
-  info = info + belong
-  print(info)
+  data = data + belong
+  return data
       
   
  
@@ -285,9 +291,9 @@ def putGroupUrlToQueue():
   return que
 
 if __name__=="__main__":
+  genareainfo()
   #获取各小组内租房信息
-  #q = putGroupUrlToQueue()
-  #multithread(scrawler, q, 50)
-  getrentinfo("a")
+  q = putGroupUrlToQueue()
+  multithread(scrawler, q, 5)
   
   
