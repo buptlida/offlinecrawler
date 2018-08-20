@@ -20,6 +20,57 @@ urllib.request.install_opener(opener)
 
 rentinfo = []
 
+areainfo = dict()
+subarea = list()
+subinfo = dict()
+subways = list()
+
+areanum = dict()
+subareanum = dict()
+subwaysnum = dict()
+subwaynum = dict()
+
+def genareainfo():
+  global subarea
+  global areainfo
+  global subinfo
+  global subways
+  global areanum
+  global subareanum
+  global subwaysnum
+  global subwaynum
+  with open("../data/area.txt") as file:
+    for line in file:
+      info = line.strip().split(":")
+      if len(info)==2:
+        for a in info[1].split(" "):
+          subarea.append(a)
+          areainfo[a] = info[0]
+  with open("../data/subway.txt") as file:
+    for line in file:
+      info = line.strip().split(":")
+      if len(info)==2:
+        for a in info[1].split(" "):
+          subways.append(a)
+          subinfo[a] = info[0]
+  with open("../data/areanum.txt") as file:
+    for line in file:
+      info = line.strip().split("\t")
+      areanum[info[0]] = info[1] 
+  with open("../data/subareanum.txt") as file:
+    for line in file:
+      info = line.strip().split("\t")
+      subareanum[info[0]] = info[1] 
+  with open("../data/subwaysnum.txt") as file:
+    for line in file:
+      info = line.strip().split("\t")
+      subwaysnum[info[0]] = info[1] 
+  with open("../data/subwaynum.txt") as file:
+    for line in file:
+      info = line.strip().split("\t")
+      subwaynum[info[0]] = info[1] 
+  
+
 def scrawler(queue):
   time.sleep(1)
   while not queue.empty():
@@ -44,6 +95,7 @@ def multithread(func, q, number):
 
 def getrentinfo(baseurl):
   global rentinfo
+  genareainfo()
   print("getrent start")
   baseurl = "https://www.douban.com/group/beijingzufang/discussion?start="
   count = -1
@@ -86,42 +138,59 @@ def getrentinfo(baseurl):
       firstedit = soup.select(".color-green")[0].string
       timeArray = time.strptime(firstedit, "%Y-%m-%d %H:%M:%S")
       data.append(int(time.mktime(timeArray)))
-      print(content)
+      print(data + info)
       time.sleep(4)
 
 def GetInfo(title, content, info):
   ##判断主次卧
+  tag = -1
   pat1 = re.compile('次卧')
   pat2 = re.compile('主卧')
-  info.append(bool(pat1.search(content)))
-  info.append(bool(pat2.search(content)))
+  if bool(pat1.search(content)) and not bool(pat2.search(content)):
+    tag = 1
+  elif not bool(pat1.search(content)) and bool(pat2.search(content)):
+    tag = 2
+  elif bool(pat1.search(content)) and bool(pat2.search(content)):
+    tag = 3 
+  info.append(tag)
   ##判断限男女
+  tag = -1
   pat3 = re.compile('男')
   pat4 = re.compile('女')
   pat5 = re.compile('不限')
-  info.append(bool(pat3.search(title)) and  (not bool(pat5.search(title))))
-  info.append(bool(pat4.search(title)) and  (not bool(pat5.search(title))))
+  if bool(pat3.search(title)) and  (not bool(pat5.search(title))):
+    tag = 1 
+  if bool(pat4.search(title)) and  (not bool(pat5.search(title))):
+    tag = 2
+  info.append(tag)
   ##判断整合组
+  tag = -1
   pat6 = re.compile('整租|整套直租|整套出租|整套')
-  info.append(bool(pat6.search(title)))
+  if bool(pat6.search(title)):
+    tag = 1
+  info.append(tag)
   ##判断房型
+  tag = -1
   pat7 = re.compile('1居|一居|1室|一室')
-  info.append(bool(pat7.search(title)))
+  tag = 1 if bool(pat7.search(title)) else tag 
   pat8 = re.compile('2居|两居|二居|2室|两室')
-  info.append(bool(pat8.search(title)))
+  tag = 2 if bool(pat8.search(title)) else tag
   pat9 = re.compile('3居|三居|3室|三室')
-  info.append(bool(pat9.search(title)))
+  tag = 3 if bool(pat9.search(title)) else tag
   pat10 = re.compile('4居|四居|4室|四室')
-  info.append(bool(pat10.search(title)))
+  tag = 4 if bool(pat10.search(title)) else tag
   pat11 = re.compile('单间')
-  info.append(bool(pat11.search(title)))
+  tag = 5 if bool(pat11.search(title)) else tag
+  info.append(tag)
   ##押金类别
+  tag = -1
   pat12 = re.compile('押一付一|押1付1')
-  info.append(bool(pat12.search(content)))
+  tag = 1 if bool(pat12.search(content)) else tag
   pat13 = re.compile('押一付二|押1付2')
-  info.append(bool(pat13.search(content)))
+  tag = 2 if bool(pat13.search(content)) else tag
   pat14 = re.compile('押一付三|押1付3')
-  info.append(bool(pat14.search(content)))
+  tag = 3 if bool(pat14.search(content)) else tag
+  info.append(tag)
   ##判断价格
   pat15 = re.compile(' \d{4} |\d{3,4}/月|主卧:\d{3,4}|主卧\d{3,4}|次卧:\d{3,4}|次卧\d{3,4}|\d{3,4}元|\d{3,4}-\d{3,4}|\d{3,4}到\d{3,4}|隔断\d{3,4}|价格\d{3,4}|每月\d{3,4}|\d{3,4}每月|一个月\d{3,4}|\d{3,4}一个月|整租:\d{3,4}|整租\d{3,4}|为\d{3,4}|小卧室\d{3,4}|大卧室\d{3,4}|月付\d{3,4}|\d{3,4}~\d{3,4}|\d{3,4}～\d{3,4}|房租:\d{3,4}|房租\d{3,4}|\d{3,4}--\d{3,4}|起\d{3,4}|租金\d{3,4}|合租\d{3,4}')
   #pat15 = re.compile(' \d{4} |\d{4}/月|主卧\d{4}|主卧:\d{4}|次卧\d{4}|次卧:\d{4}|\d{4}元|\d{4}-\d{4}|\d{4}到\d{4}|隔断\d{4}|价格\d{4}|每月\d{4}|\d{4}每月|一个月\d{4}|\d{4}一个月|整租\d{4}|整租：\d{4}|为\d{4}')
@@ -132,28 +201,43 @@ def GetInfo(title, content, info):
       #info.append(price[0].replace("主卧","").replace("次卧","").replace("元","").replace("/月","").strip())
       if "-" in p:
           ptwo = p.split("-")
-          rental.add(int(ptwo[0]))
-          rental.add(int(ptwo[1]))
+          try:
+            rental.add(int(ptwo[0]))
+            rental.add(int(ptwo[1]))
+          except ValueError:
+            pass
           continue
       if "--" in p:
           ptwo = p.split("-")
-          rental.add(int(ptwo[0]))
-          rental.add(int(ptwo[1]))
+          try:
+            rental.add(int(ptwo[0]))
+            rental.add(int(ptwo[1]))
+          except ValueError:
+            pass
           continue
       if "到" in p:
           ptwo = p.split("到")
-          rental.add(int(ptwo[0]))
-          rental.add(int(ptwo[1]))
+          try:
+            rental.add(int(ptwo[0]))
+            rental.add(int(ptwo[1]))
+          except ValueError:
+            pass
           continue
       if "~" in p:
           ptwo = p.split("~")
-          rental.add(int(ptwo[0]))
-          rental.add(int(ptwo[1]))
+          try:
+            rental.add(int(ptwo[0]))
+            rental.add(int(ptwo[1]))
+          except ValueError:
+            pass
           continue
       if "～" in p:
           ptwo = p.split("~")
-          rental.add(int(ptwo[0]))
-          rental.add(int(ptwo[1]))
+          try:
+            rental.add(int(ptwo[0]))
+            rental.add(int(ptwo[1]))
+          except ValueError:
+            pass
           continue
       m = p.replace("主卧:","").replace("次卧:","").replace("元","").replace("/月","").replace("隔断","").replace("价格","").replace("每月","").replace("一个月","").replace("主卧","").replace("次卧","").replace("为","").replace("小卧室","").replace("大卧室","").replace("月付","").replace("房租:","").replace("房租","").replace("起","").replace("租金","").replace("合租","").strip()
       rental.add(int(m))
@@ -161,7 +245,30 @@ def GetInfo(title, content, info):
   p = pat16.findall("\d{4}")
   if len(p)==1:
       rental.add(int(p[0]))
-  print(rental)
+  tag = -1 
+  for r in rental:
+    if r < 1500:
+      tag = 0
+    else:
+      num = int(r/500 -3) 
+      tag = (tag | num)
+  info.append(tag)  
+  ##获取区域信息
+  belong = [-1,-1,-1,-1]
+  for a in subarea:
+    if a in title:
+      belong[0] = int(subareanum[a])
+      belong[1] = int(areanum[areainfo[a]])
+      break
+  for a in subways:
+    if a in title:
+      belong[2] = int(subwaynum[a])
+      belong[3] = int(subwaysnum[subinfo[a]])
+      break
+  info = info + belong
+  print(info)
+      
+  
  
 def SortAndWriteToFile():
   output = open("../data/groupinfo.txt", "w")
