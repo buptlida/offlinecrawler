@@ -100,6 +100,7 @@ def getrentinfo(baseurl, threedaysago):
   while True:
     count += 1
     url = baseurl + str(25 * count)
+    print(url)
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.101 Safari/537.36", "Upgrade-Insecure-Requests":1, "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8", "Cache-Control":"max-age=0", "Host":"www.douban.com"}
     request = urllib.request.Request(url = url, headers=headers)
     response = urllib.request.urlopen(request)
@@ -108,6 +109,7 @@ def getrentinfo(baseurl, threedaysago):
     result = soup.select(".olt .title")
     ##线程退出标识
     tag = 0
+    rlen = len(result)
     for r in result:
       data = []
       data.append(r.a["href"])
@@ -142,10 +144,12 @@ def getrentinfo(baseurl, threedaysago):
       data = GetInfo(title, content, data)
       if data[4] < threedaysago:
         tag += 1
+        print("tag:" + str(tag))
+        print("result length:" + str(rlen))
       print(data[5])
       time.sleep(4)
     ##该线程释放
-    if tag==len(result):
+    if tag==rlen:
       return 
 
 def GetInfo(title, content, data):
@@ -199,7 +203,7 @@ def GetInfo(title, content, data):
   tag = 3 if bool(pat14.search(content)) else tag
   data.append(tag)
   ##判断价格
-  pat15 = re.compile(' \d{4} |\d{3,4}/月|主卧:\d{3,4}|主卧\d{3,4}|次卧:\d{3,4}|次卧\d{3,4}|\d{3,4}元|\d{3,4}-\d{3,4}|\d{3,4}到\d{3,4}|隔断\d{3,4}|价格\d{3,4}|每月\d{3,4}|\d{3,4}每月|一个月\d{3,4}|\d{3,4}一个月|整租:\d{3,4}|整租\d{3,4}|为\d{3,4}|小卧室\d{3,4}|大卧室\d{3,4}|月付\d{3,4}|\d{3,4}~\d{3,4}|\d{3,4}～\d{3,4}|房租:\d{3,4}|房租\d{3,4}|\d{3,4}--\d{3,4}|起\d{3,4}|租金\d{3,4}|合租\d{3,4}')
+  pat15 = re.compile(' \d{4,5} |\/月|主卧:\d{3,4,5}|主卧\d{3,4,5}|次卧:\d{3,4,5}|次卧\d{3,4,5}|\d{3,4,5}元|\d{3,4,5}-\d{3,4,5}|\d{3,4,5}到\d{3,4,5}|隔断\d{3,4,5}|价格\d{3,4,5}|每月\d{3,4,5}|\d{3,4,5}每月|一个月\d{3,4,5}|\d{3,4,5}一个月|整租:\d{3,4,5}|整租\d{3,4,5}|为\d{3,4,5}|小卧室\d{3,4,5}|大卧室\d{3,4,5}|月付\d{3,4,5}|\d{3,4,5}~\d{3,4,5}|\d{3,4,5}～\d{3,4,5}|房租:\d{3,4,5}|房租\d{3,4,5}|\d{3,4,5}--\d{3,4,5}|起\d{3,4,5}|租金\d{3,4,5}|合租\d{3,4,5}')
   #pat15 = re.compile(' \d{4} |\d{4}/月|主卧\d{4}|主卧:\d{4}|次卧\d{4}|次卧:\d{4}|\d{4}元|\d{4}-\d{4}|\d{4}到\d{4}|隔断\d{4}|价格\d{4}|每月\d{4}|\d{4}每月|一个月\d{4}|\d{4}一个月|整租\d{4}|整租：\d{4}|为\d{4}')
   price = pat15.findall(title + content)
   rental = set()
@@ -294,6 +298,6 @@ if __name__=="__main__":
   genareainfo()
   #获取各小组内租房信息
   q = putGroupUrlToQueue()
-  multithread(scrawler, q, 5)
+  multithread(scrawler, q, 1)
   
   
