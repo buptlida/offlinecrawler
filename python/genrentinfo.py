@@ -10,6 +10,7 @@ import threading
 import time
 import datetime
 import re
+import hashlib
 
 httpHandler = urllib.request.HTTPHandler(debuglevel=0)
 httpsHandler = urllib.request.HTTPSHandler(debuglevel=0)
@@ -112,6 +113,7 @@ def getrentinfo(baseurl, threedaysago):
     for r in result:
       data = []
       data.append(r.a["href"])
+      data.append(hashlib.new('md5', bytes(data[0], encoding = "utf8")).hexdigest())
       title = r.a["title"].strip()
       data.append(title)
       data.append(r.next_sibling.next_sibling.string)
@@ -144,6 +146,7 @@ def getrentinfo(baseurl, threedaysago):
       if data[4] < threedaysago:
         tag += 1
       time.sleep(4)
+      print(data)
     ##该线程释放
     if tag==rlen:
       return 
@@ -260,8 +263,6 @@ def GetInfo(title, content, data):
       belong[2] = int(subwaynum[a])
       belong[3] = int(subwaysnum[subinfo[a]])
       break
-  print(title)
-  print(belong)
   data = data + belong
   return data
       
