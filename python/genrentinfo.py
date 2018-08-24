@@ -78,7 +78,7 @@ def genareainfo():
 
 def scrawler(queue):
   time.sleep(1)
-  threedaysago = int(time.time()) - 3600 * 24 * 5
+  threedaysago = int(time.time()) - 3600 * 24 * 30
   while not queue.empty():
     try:
       print('thread %s is running...' % threading.currentThread().name)
@@ -108,12 +108,16 @@ def getrentinfo(baseurl, threedaysago):
     print(url)
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.101 Safari/537.36", "Upgrade-Insecure-Requests":1, "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8", "Cache-Control":"max-age=0", "Host":"www.douban.com"}
     request = urllib.request.Request(url = url, headers=headers)
-    response = urllib.request.urlopen(request)
-    html = response.read().decode("UTF-8")
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookiejar))
+    response = opener.open(request)
+    html = response.read().decode("UTF-8", errors='ignore')
+    response.close()
     soup = BeautifulSoup(html, "html.parser")
     result = soup.select(".olt .title")
     ##线程退出标识
     tag = 0
+    ##是否已经在库里的标识
+    rlen = len(result)
     for r in result:
       data = []
       data.append(r.a["href"])
@@ -133,8 +137,10 @@ def getrentinfo(baseurl, threedaysago):
       timeArray = time.strptime(lastreply, "%Y-%m-%d %H:%M")
       data.append(int(time.mktime(timeArray)))
       request = urllib.request.Request(url = r.a["href"], headers=headers)
-      response = urllib.request.urlopen(request)
-      html = response.read().decode("UTF-8")
+      opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookiejar))
+      response = opener.open(request)
+      html = response.read().decode("UTF-8", errors='ignore')
+      response.close()
       soup = BeautifulSoup(html, "html.parser")
       content = title
       subresult = soup.select(".topic-richtext p") 
@@ -151,17 +157,26 @@ def getrentinfo(baseurl, threedaysago):
       if data[7] > threedaysago:
         tag = 1
       else:
+        rlen-=1
         time.sleep(5)
         continue
       ##没价格的filter
-      if data[-6] == -1:
+      if data[-6] == 0:
+        rlen-=1
         time.sleep(5)
         continue
       ##入库
-      sql = "select * from info where md5url='" + data[1] + "'"    
+      if '"' in data[2] or "'" in data[2] or '"' in data[3] or "'" in data[3]:
+        rlen-=1
+        time.sleep(5)
+        continue
+      sql = "select * from info where md5url='" + data[1] + "' or (title='" + data[2] + "' and author='" + data[3] + "')" 
       cur.execute(sql) 
       results = cur.fetchall()
       if len(results)==0:
+        if "'" in data[2] or '"' in data[2] or "'" in data[3] or '"' in data[3]:
+          time.sleep(5)
+          continue
         sql = "insert into info(md5url,url,title,author,firsteditime,bedroom,gender,renttype,housetype,cashtype,price,streetcode,regioncode,sublinecode,subwaycode,source) values('" + \
               data[1] + "','" + data[0] + "','" + data[2] + "','" + data[3] + "'," + ",".join([str(d) for d in data[7:-1]]) + ",'" + data[-1] + "')"
         try:
@@ -171,11 +186,12 @@ def getrentinfo(baseurl, threedaysago):
           db.rollback()
           print(data)
       else:
-         time.sleep(5)
-         continue
+        rlen-=1
+        time.sleep(5)
+        continue
       time.sleep(5)
     ##该线程释放
-    if tag==0:
+    if tag==0 or rlen==0:
       return 
 
 def GetInfo(title, content, data):
@@ -270,12 +286,14 @@ def GetInfo(title, content, data):
   p = pat16.findall("\d{4}")
   if len(p)==1:
       rental.add(int(p[0]))
-  tag = -1 
+  tag = 0 
   for r in rental:
     if r < 1500:
-      tag = 0
+      tag = 1
+    elif r>=5500:
+      tag = 512
     else:
-      num = pow(2, int(r/500 -3))
+      num = pow(2, int(r/500 -2))
       tag = (tag | num)
   data.append(tag)  
   ##获取区域信息
